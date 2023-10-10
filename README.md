@@ -20,3 +20,5 @@ que, por sua vez, as enviará a TODOS os Clientes conectados ao Servidor no mome
 3. Usar o comando '/NICK <NOVO NICK>' para trocar de NICK no Servidor, desde que o novo NICK escolhido não já esteja em uso;
 
 4. Usar o comando '/SAIR' para sair do Servidor, liberando o seu socket, a porta e o NICK.
+
+<b> Lembre-se de executar primeiro o código do Servidor! </b>
