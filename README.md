@@ -1,4 +1,4 @@
-<b> INSTRUÇÕES DE USO <b/>
+<b> INSTRUÇÕES DE USO </b>
 
 Inicialmente, com os códigos do SERVIDOR e do CLIENTES em execução, o CLIENTE deve entrar com o comando
 
