@@ -1,0 +1,142 @@
+"""
+** INSTRUÇÕES DE USO **
+
+Inicialmente, com os códigos do SERVIDOR e do CLIENTES em execução, o CLIENTE deve entrar com o comando
+
+'/ENTRAR <IP DO SERVIDOR> <PORTA A SE CONECTAR> <NICK DO CLIENTE>'
+
+Feito isso, o Cliente irá - caso coloque IP:PORTA corretamente, e o NICK esteja livre - se conectar ao Servidor. Uma mensagem
+é exibida se a conexão for bem sucedida.
+
+ - Se o IP ou a PORTA estiverem incorretos, o Cliente poderá usar o comando '/ENTRAR ...' novamente.
+ - Se o NICK não estiver livre, o Cliente deverá colocar outro NICK.
+
+Conectado ao Servidor, o Cliente terá 4 opções:
+
+1. Enviar mensagens de forma livre e sem limite de mensagens sequidas, mensagens essas que serão enviadas ao Servidor,
+que, por sua vez, as enviará a TODOS os Clientes conectados ao Servidor no momento;
+
+2. Usar o comando '/USUARIOS' para listar os clientes conectados naquele momento ao servidor;
+
+3. Usar o comando '/NICK <NOVO NICK>' para trocar de NICK no Servidor, desde que o novo NICK escolhido não já esteja em uso;
+
+4. Usar o comando '/SAIR' para sair do Servidor, liberando o seu socket, a porta e o NICK.
+
+"""
+
+import socket
+import threading
+
+PORT = 5000
+MAX_CLIENTS = 4
+clients = []
+usuarios = []
+nome_disp = 0
+lotado = 0
+usuarios_conectados = []
+
+def broadcast_message(message, sender_name):
+    if sender_name == "sistema":
+        formatted_message = message
+    else:
+        f"\n{sender_name}: {message}"
+
+    for usuario in usuarios_conectados:
+        if usuario != sender_name:
+            index = usuarios_conectados.index(usuario)
+            client_socket = clients[index][0]
+            client_socket.send(formatted_message.encode())
+
+def remove_client(client_socket, client_name):
+    for i, client in enumerate(clients):
+        if client[0] == client_socket:
+            print(f"\n-- {client_name} saiu. --\n")
+            print(f"\n-- {client_name} saiu. --\n")
+            clients.pop(i)
+            for usuario in usuarios_conectados:
+                if usuario == client_name:
+                    usuarios_conectados.remove(usuario)
+            broadcast_message(f"\n-- {client_name} saiu. --", "sistema\n")
+            break
+
+def verifica_nome(nome, client_socket):
+    for usuario in usuarios_conectados:
+        if usuario == nome:
+            client_socket.send("O nome escolhido já está sendo usado. Digite outro:\n".encode())
+            return 1
+    return 0
+
+
+def receive_messages(client_socket, client_name):
+    while True:
+        try:
+
+            message = client_socket.recv(1024).decode()
+            if not message:
+                remove_client(client_socket, client_name)
+                break
+
+            if not client_name:
+                nome_disp = verifica_nome(message, client_socket)
+                if nome_disp:
+                    receive_messages(client_socket, client_name)
+                client_name = message
+                print(f"\n-- {client_name} entrou --\n")
+                broadcast_message(f"\n-- {client_name} entrou --\n", "sistema")
+
+                # Adiciona o novo cliente à lista global de usuários conectados
+                usuarios_conectados.append(client_name)
+
+                client_socket.send(
+                    ">> Comandos disponíveis:\nDigite '/USUARIOS' para ver a lista de usuários conectados ao servidor.\nDigite '/NICK <NOVO APELIDO>' para alterar o seu apelido no servidor.\nDigite '/SAIR' para se desconectar do servidor.\n".encode())
+
+            elif message == "/USUARIOS":
+                usuarios = "\n----- Usuários atualmente conectados:\n"
+                for i, usuario in enumerate(usuarios_conectados):
+                    usuarios += f"{i + 1}. {usuario}\n"
+                client_socket.send(usuarios.encode())
+
+            elif message.startswith("/NICK "):
+                apelido = message[6:]
+                apelido = apelido.rstrip()
+                if verifica_nome(apelido, client_socket) == 0:
+                    change = ""
+                    change += f"\n-- {client_name} mudou o apelido para {apelido} --\n"
+                    print(f"-- {client_name} mudou o apelido para {apelido} --")
+                    client_socket.send(change.encode())
+
+                    # Atualiza o apelido na lista global de usuários conectados
+                    usuarios_conectados[usuarios_conectados.index(client_name)] = apelido
+                    client_name = apelido
+
+            else:
+                print(f"{client_name}: {message}")
+                broadcast_message(message, client_name)  # Transmite a mensagem para todos os clientes
+
+        except ConnectionResetError:
+            remove_client(client_socket, client_name)
+            break
+
+def main():
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(('0.0.0.0', PORT))
+    server_socket.listen(MAX_CLIENTS)
+
+    print("\nAguardando conexões...\n")
+
+    while True:
+        client_socket, addr = server_socket.accept()
+
+        if len(clients) >= MAX_CLIENTS:
+            lotado = 1
+            client_socket.send(str(lotado).encode())
+            client_socket.close()
+        else:
+            lotado = 0
+            client_socket.send(str(lotado).encode())
+            clients.append((client_socket, ""))
+            client_thread = threading.Thread(target=receive_messages, args=(client_socket, clients[-1][1]))
+            client_thread.start()
+
+if __name__ == "__main__":
+    main()
